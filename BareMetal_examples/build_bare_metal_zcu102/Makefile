@@ -19,22 +19,98 @@
  # SOFTWARE.
 
 
-PATH?=/usr/bin
-CROSS_PREFIX?=$(PATH)/aarch64-none-elf-
+UNAME_S:=$(shell uname -s)
+ARCH:=$(shell uname -m)
+COMPILE=Native
 
-all: hello_world.elf
+TOOLCHAIN_PATH:=""
+
+TOOL_CC:=gcc
+TOOL_LD:=ld
+TOOL_AS:=as
+TOOL_OBJCOPY:=objcopy
+
+LD_SCRIPT:=-Thello_world.ld
+
+ifeq ($(UNAME_S),Darwin)
+    OS:=MacOS
+    ifeq ($(ARCH),arm64)
+        TOOLCHAIN_PATH:="/opt/homebrew/opt/aarch64-unknown-linux-gnu/bin/"
+        CROSS_PREFIX:=aarch64-linux-gnu-
+    else ifeq ($(ARCH),x86_64)
+        COMPILE:=Cross
+        TOOLCHAIN_PATH:="/opt/homebrew/opt/aarch64-unknown-linux-gnu/bin/"
+        CROSS_PREFIX:=aarch64-linux-gnu-
+    else
+        $(error unsupported architecture $(ARCH) for $(OS))
+    endif
+else ifeq ($(UNAME_S),Linux)
+    OS:=Linux
+    ifeq ($(ARCH),arm64)
+        COMPILE:=Native
+    else ifeq ($(ARCH),x86_64)
+        COMPILE:=Cross
+        CROSS_PREFIX:=aarch64-linux-gnu-
+    else
+        $(error unsupported architecture $(ARCH) for $(OS))
+    endif
+else ifeq ($(findstring MINGW64,$(UNAME_S)),MINGW64)
+    OS:=Windows(MINGW64)
+    ifeq ($(ARCH),arm64)
+        COMPILE:=Native
+    else ifeq ($(ARCH),x86_64)
+        COMPILE:=Cross
+            TOOLCHAIN_PATH:="/usr/bin"
+            CROSS_PREFIX:=aarch64-none-elf-
+    else
+        $(error unsupported architecture $(ARCH) for $(OS))
+    endif
+else
+    $(error Unsupported build environement)
+endif
+
+AS := $(TOOLCHAIN_PATH)$(CROSS_PREFIX)$(TOOL_AS)
+CC := $(TOOLCHAIN_PATH)$(CROSS_PREFIX)$(TOOL_CC)
+LD := $(TOOLCHAIN_PATH)$(CROSS_PREFIX)$(TOOL_LD)
+OBJCOPY := $(TOOLCHAIN_PATH)$(CROSS_PREFIX)$(TOOL_OBJCOPY)
+
+
+$(info $(COMPILE) compile to arm64 on $(OS)/$(ARCH))
+
+
+define c_compiler
+    $(info CC       $1)
+    @$(CC) -c $1 -o $2
+endef
+
+define as_compiler
+    $(info AS       $1)
+    @$(AS) -c $1 -o $2
+endef
+
+define linker
+    $(info LD       $2)
+    @$(LD) $(LD_SCRIPT) $1 $2 -o $3
+endef
+
+define elf2bin
+    $(info ELF2BIN  $1)
+    @$(OBJCOPY) -O binary $1 $2
+endef
+
+all: hello_world.bin
 
 hello_world.o: hello_world.c
-	$(CROSS_PREFIX)gcc -c $< -o $@
+	$(call c_compiler,$<,$@)
 
 startup64.o: startup64.s
-	$(CROSS_PREFIX)as -c $< -o $@
+	$(call as_compiler,$<,$@)
 
 hello_world.elf: hello_world.o startup64.o
-	$(CROSS_PREFIX)ld -Thello_world.ld $^ -o $@
+	$(call linker,$(LD_SCRIPT),$<,$@)
 
 hello_world.bin: hello_world.elf
-	$(CROSS_PREFIX)objcopy -O binary $< $@
+	$(call elf2bin,$<,$@)
 
 clean:
 	rm -f hello_world.bin hello_world.elf startup64.o hello_world.o
