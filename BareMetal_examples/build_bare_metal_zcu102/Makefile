@@ -35,6 +35,12 @@ TOOL_OBJCOPY:=objcopy
 
 LD_SCRIPT:=-Thello_world.ld
 
+##########
+
+# baremetal toolchains can be found at https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+
+##########
+
 ifeq ($(UNAME_S),Darwin)
     OS:=MacOS
     ifeq ($(ARCH),arm64)
@@ -53,7 +59,8 @@ else ifeq ($(UNAME_S),Linux)
         COMPILE:=Native
     else ifeq ($(ARCH),x86_64)
         COMPILE:=Cross
-        CROSS_PREFIX:=aarch64-linux-gnu-
+        TOOLCHAIN_PATH="/opt/arm-gnu-toolchain-14.3.rel1-x86_64-aarch64-none-elf/bin/"
+        CROSS_PREFIX:=aarch64-none-elf-
     else
         $(error unsupported architecture $(ARCH) for $(OS))
     endif
