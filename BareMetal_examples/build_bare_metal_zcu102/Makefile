@@ -21,6 +21,9 @@
 
 UNAME_S:=$(shell uname -s)
 ARCH:=$(shell uname -m)
+ifeq ($(ARCH),aarch64)
+    ARCH:=arm64
+endif
 COMPILE=Native
 
 TOOLCHAIN_PATH:=""
@@ -90,7 +93,7 @@ endef
 
 define linker
     $(info LD       $2)
-    @$(LD) $(LD_SCRIPT) $1 $2 -o $3
+    @$(LD) $1 $2 -o $3
 endef
 
 define elf2bin
